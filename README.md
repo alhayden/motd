@@ -2,7 +2,7 @@
 simple terminal greeter
 
 ## Use
-Place your `.WELCOME` configuration file in your homedir
+Place your `.WELCOME` configuration file in your homedir.
 Run `motd` from your `.shellrc` to recieve a greeting each time you open a terminal
 
 ## Configuration
