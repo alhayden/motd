@@ -1,0 +1,41 @@
+{
+	"header":"Welcome to %host, %user!\n%date",
+	"notifications":[
+		{
+			"name": "Important Dates",
+			"type": "reminder",
+			"warnings": [30, 7, 1, 0],
+			"strp": "%d %b",
+			"values": {
+				"17 Jan" : "Remember the company-wide meeting on January 17th",
+				"4 Oct" : "Don't forget the party on October 4th",
+				"19 Dec" : "The speech is due on December 19th"
+			}
+		},
+		{
+			"name": "Reminders",
+			"type": "random",
+			"null_chance": 0.4,
+			"msg": "Today might be a good day to %s",
+			"values": [
+				"Go for a walk",
+				"Call your parents",
+				"Check your air conditioner filter",
+				"Clean out your inbox"
+			]
+		},
+		{
+			"name": "Splashes",
+			"type": "splash",
+			"null_chance": 0,
+			"msg": "\"%s\"",
+			"values":[
+				"There's no place like home!",
+				"Any computer is a laptop if you're brave enough!",
+				"Too Many Cats!",
+				"These things are hard to come up with!",
+				"Look ma, no hands!"
+			]
+		}
+	]
+}

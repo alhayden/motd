@@ -1,0 +1,90 @@
+#! /usr/bin/python
+
+import json, datetime, random, os, sys
+
+path = ".WELCOME"#os.environ['HOME'] + '/.WELCOME'
+welcome = json.loads(open(path, 'r').read())
+now = datetime.date.today()
+
+rows, columns = os.popen('stty size', 'r').read().split()
+width = min(94, int(columns)) - 2
+if width < 60:
+    sys.exit()
+
+def main():
+    printout = '┏' + '━' * width + '┓' + '\n'
+    seperator = '┠' + '─' * width + '┨\n'
+    header = 'Welcome to %host, %user!\n%date'
+
+    if 'header' in welcome:
+        header = welcome['header']
+    header = header.replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y'))
+    
+    printout += pad(header)
+    printout += seperator
+
+    for notif in welcome['notifications']:
+        tipe = notif['type']
+        output = ''
+        if tipe == 'random':
+            output = rand(notif)
+        elif tipe == 'splash':
+            output = splash(notif)
+        elif tipe == 'reminder':
+            output = reminder(notif)
+        if output is not None:
+            if 'msg' in notif:
+                output = notif['msg'].replace('%s', output)
+            printout += pad(output,tick=True)
+
+    printout += '┗' + '━' * width + '┛'
+    print(printout)
+
+def pad(message, tick=False):
+    global width
+    s = 0
+    n = width - 2
+    for i in range(len(message)):
+        if message[i] == ' ' or message[i] == '\n':
+            s = i
+        if i == n:
+            message = message[:s] + '\n' + message[s+1:]
+            n = s + width - 2
+    msg = message.split('\n')
+    output = ''
+    for m in msg:
+        output += '┃ ' + m + ' ' *(width - len(m) - 1) + '┃\n'
+    if tick:
+        output = '┣' + output[1:]
+    return output
+
+def reminder(notif):
+    name = notif['name']
+    warnings = notif['warnings']
+    strp = notif['strp']
+    values = notif['values']
+    returns = ''
+    for val in values:
+        t = datetime.datetime.strptime(val, strp).date()
+        t = t.replace(year=now.year)
+        if t < now:
+            t = t.replace(year=t.year+1)
+        delta = t - now
+        if delta.days in warnings:
+            returns += values[val] + '%r'
+    if returns == '':
+        return
+    return returns.strip('%r')
+
+def rand(notif):
+    random.seed(str(now) + notif['name'])
+    if random.random() > notif['null_chance']:
+        return random.choice(notif['values'])
+
+def splash(notif):
+    random.seed()
+    if random.random() > notif['null_chance']:
+        return random.choice(notif['values'])
+
+if __name__ == '__main__':
+    main()
