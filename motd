@@ -2,7 +2,7 @@
 
 import json, datetime, random, os, sys
 
-path = ".WELCOME"#os.environ['HOME'] + '/.WELCOME'
+path = os.environ['HOME'] + '/.WELCOME'
 welcome = json.loads(open(path, 'r').read())
 now = datetime.date.today()
 
