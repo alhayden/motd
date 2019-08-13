@@ -1,0 +1,2 @@
+# motd
+simple terminal greeter
