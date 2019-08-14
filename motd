@@ -2,16 +2,18 @@
 
 import json, datetime, random, os, sys
 
-path = os.environ['HOME'] + '/.WELCOME'
-welcome = json.loads(open(path, 'r').read())
-now = datetime.date.today()
-
-rows, columns = os.popen('stty size', 'r').read().split()
-width = min(94, int(columns)) - 2
-if width < 60:
-    sys.exit()
 
 def main():
+    path = ".WELCOME"#os.environ['HOME'] + '/.WELCOME'
+    welcome = json.loads(open(path, 'r').read())
+    now = datetime.date.today()
+
+    rows, columns = os.popen('stty size', 'r').read().split()
+    width = min(94, int(columns)) - 2
+    if width < 60:
+        sys.exit()
+    
+
     printout = '┏' + '━' * width + '┓' + '\n'
     seperator = '┠' + '─' * width + '┨\n'
     header = 'Welcome to %host, %user!\n%date'
@@ -19,29 +21,37 @@ def main():
     if 'header' in welcome:
         header = welcome['header']
     header = header.replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y'))
-    
-    printout += pad(header)
+    if 'ansi' in welcome:
+        printout += pad(header, width, ansi=parseansi(welcome['ansi']))
+    else:
+        printout += pad(header, width)
     printout += seperator
 
     for notif in welcome['notifications']:
         tipe = notif['type']
         output = ''
         if tipe == 'random':
-            output = rand(notif)
+            output = rand(notif, now)
         elif tipe == 'splash':
-            output = splash(notif)
+            output = splash(notif, now)
         elif tipe == 'reminder':
-            output = reminder(notif)
+            output = reminder(notif, now)
+        elif tipe == 'always':
+            output = always(notif, now)
         if output is not None:
             if 'msg' in notif:
                 output = notif['msg'].replace('%s', output)
-            printout += pad(output,tick=True)
+            if 'ansi' in notif:
+                printout += pad(output, width, tick=True, ansi=parseansi(notif['ansi']))
+            else:
+                printout += pad(output, width, tick=True)
 
     printout += '┗' + '━' * width + '┛'
     print(printout)
 
-def pad(message, tick=False):
-    global width
+def pad(message, width, tick=False, ansi=''):
+    plain = '\33[0m'
+    ansi = ansi.replace('[', '\33[')
     s = 0
     n = width - 2
     for i in range(len(message)):
@@ -53,12 +63,22 @@ def pad(message, tick=False):
     msg = message.split('\n')
     output = ''
     for m in msg:
-        output += '┃ ' + m + ' ' *(width - len(m) - 1) + '┃\n'
+        output += '┃ ' + ansi + m + ' ' *(width - len(m) - 1) + plain + '┃\n'
     if tick:
         output = '┣' + output[1:]
     return output
 
-def reminder(notif):
+def parseansi(ansi):
+    esc = '\33['
+    out = ''
+    if 'r' in ansi and 'g' in ansi and 'b' in ansi:
+        out = '\33[38;2;' + str(ansi['r']) + ';' + str(ansi['g']) + ';' + str(ansi['b']) + 'm'
+    if 'codes' in ansi:
+        for code in ansi['codes']:
+            out += esc + str(code) + 'm'
+    return out
+
+def reminder(notif, now):
     name = notif['name']
     warnings = notif['warnings']
     strp = notif['strp']
@@ -71,20 +91,27 @@ def reminder(notif):
             t = t.replace(year=t.year+1)
         delta = t - now
         if delta.days in warnings:
-            returns += values[val] + '%r'
+            returns += values[val] + '\n'
     if returns == '':
         return
-    return returns.strip('%r')
+    return returns.strip()
 
-def rand(notif):
+def rand(notif, now):
     random.seed(str(now) + notif['name'])
     if random.random() > notif['null_chance']:
         return random.choice(notif['values'])
 
-def splash(notif):
+def splash(notif, now):
     random.seed()
     if random.random() > notif['null_chance']:
         return random.choice(notif['values'])
+
+def always(notif, now):
+    out = ''
+    for v in notif['values']:
+        out += v + '\n'
+    return out.strip()
+    
 
 if __name__ == '__main__':
     main()

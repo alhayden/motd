@@ -1,5 +1,6 @@
 {
 	"header":"Welcome to %host, %user!\n%date",
+	"ansi":{"codes":[1]},
 	"notifications":[
 		{
 			"name": "Important Dates",
@@ -29,6 +30,7 @@
 			"type": "splash",
 			"null_chance": 0,
 			"msg": "\"%s\"",
+			"ansi":{"r":253, "g":248, "b":4},
 			"values":[
 				"There's no place like home!",
 				"Any computer is a laptop if you're brave enough!",
