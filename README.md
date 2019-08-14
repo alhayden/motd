@@ -17,7 +17,7 @@ The root contains two objects:
 Each `notification` contains these values:
  - `name`: the name of this notification (required, but is not displayed)
  - `msg` : text to wrap around the notification, `%s` is replaced with the displayed text
- - `type`: the type of this notification, can be `reminder`, `splash`, or `random`.
+ - `type`: the type of this notification, can be `reminder`, `splash`, `random`, or `always`.
  - `ansi`: optional ansi codes, formatted like {"r":`r`, "g":`g`,"b":`b`, "codes":[`1`, `2`]}
 
 
