@@ -1,7 +1,17 @@
 {
-	"header":"Welcome to %host, %user!\n%date",
-	"ansi":{"codes":[1]},
+	"width_max": 94,
+	"width_min": 60,
+	"ansi":{},
 	"notifications":[
+		{
+			"name": "Header",
+			"type": "header",
+			"ansi": {"codes":[1]},
+			"header": "Welcome to %host, %user!\n%date"
+		},
+		{
+			"type": "separator"
+		},
 		{
 			"name": "Important Dates",
 			"type": "reminder",
@@ -19,10 +29,10 @@
 			"null_chance": 0.4,
 			"msg": "Today might be a good day to %s",
 			"values": [
-				"Go for a walk",
-				"Call your parents",
-				"Check your air conditioner filter",
-				"Clean out your inbox"
+				"go for a walk",
+				"call your parents",
+				"check your air conditioner filter",
+				"clean out your inbox"
 			]
 		},
 		{
@@ -38,6 +48,26 @@
 				"These things are hard to come up with!",
 				"Look ma, no hands!"
 			]
+		},
+		{
+			"name": "Always",
+			"type": "always",
+			"msg":"%s",
+			"ansi":{},
+			"values":[
+				"This is always printed!"
+			]
+		},
+		{
+			"name": "Weekly",
+			"type": "weekly",
+			"msg": "%s",
+			"ansi": {},
+			"strp": "%a",
+			"values": {
+				"Thu": "It's trash day!",
+				"Mon": "Remember your Monday meeting today!"
+			}
 		}
 	]
 }

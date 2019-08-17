@@ -4,32 +4,27 @@ import json, datetime, random, os, sys
 
 
 def main():
-    path = ".WELCOME"#os.environ['HOME'] + '/.WELCOME'
-    welcome = json.loads(open(path, 'r').read())
+    path = os.environ['HOME'] + '/.WELCOME'
+
     now = datetime.date.today()
 
-    rows, columns = os.popen('stty size', 'r').read().split()
-    width = min(94, int(columns)) - 2
-    if width < 60:
-        sys.exit()
+    # %host -> host, %user -> username, %date -> date
+    welcome = json.loads(open(path, 'r').read().replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y')))
     
+    rows, columns = os.popen('stty size', 'r').read().split()
+    width = min(welcome['width_max'], int(columns)) - 2
+    if width < welcome['width_min']:
+        sys.exit()
 
-    printout = '┏' + '━' * width + '┓' + '\n'
-    seperator = '┠' + '─' * width + '┨\n'
-    header = 'Welcome to %host, %user!\n%date'
-
-    if 'header' in welcome:
-        header = welcome['header']
-    header = header.replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y'))
-    if 'ansi' in welcome:
-        printout += pad(header, width, ansi=parseansi(welcome['ansi']))
-    else:
-        printout += pad(header, width)
-    printout += seperator
+    box_ansi = parseansi(welcome['ansi'])
+    
+    printout = box_ansi + '┏' + '━' * width + '┓' + '\n'
+    separator = box_ansi + '┠' + '─' * width + '┨\n'
 
     for notif in welcome['notifications']:
         tipe = notif['type']
-        output = ''
+        output = None
+        tick = True
         if tipe == 'random':
             output = rand(notif, now)
         elif tipe == 'splash':
@@ -38,20 +33,26 @@ def main():
             output = reminder(notif, now)
         elif tipe == 'always':
             output = always(notif, now)
+        elif tipe == 'header':
+            output = notif['header']
+            tick = False
+        elif tipe == 'separator':
+            printout += separator
+        elif tipe == 'weekly':
+            output = weekly(notif, now)
         if output is not None:
             if 'msg' in notif:
                 output = notif['msg'].replace('%s', output)
             if 'ansi' in notif:
-                printout += pad(output, width, tick=True, ansi=parseansi(notif['ansi']))
+                printout += pad(output, width, box_ansi, tick=tick, ansi=parseansi(notif['ansi']))
             else:
-                printout += pad(output, width, tick=True)
+                printout += pad(output, width, box_ansi, tick=tick)
 
-    printout += '┗' + '━' * width + '┛'
+    printout += box_ansi + '┗' + '━' * width + '┛'
     print(printout)
 
-def pad(message, width, tick=False, ansi=''):
+def pad(message, width, box_ansi, tick=False, ansi=''):
     plain = '\33[0m'
-    ansi = ansi.replace('[', '\33[')
     s = 0
     n = width - 2
     for i in range(len(message)):
@@ -63,7 +64,7 @@ def pad(message, width, tick=False, ansi=''):
     msg = message.split('\n')
     output = ''
     for m in msg:
-        output += '┃ ' + ansi + m + ' ' *(width - len(m) - 1) + plain + '┃\n'
+        output += '┃ ' + ansi + m + ' ' *(width - len(m) - 1) + box_ansi + '┃\n'
     if tick:
         output = '┣' + output[1:]
     return output
@@ -76,10 +77,9 @@ def parseansi(ansi):
     if 'codes' in ansi:
         for code in ansi['codes']:
             out += esc + str(code) + 'm'
-    return out
+    return "\33[0m" + out
 
 def reminder(notif, now):
-    name = notif['name']
     warnings = notif['warnings']
     strp = notif['strp']
     values = notif['values']
@@ -111,6 +111,14 @@ def always(notif, now):
     for v in notif['values']:
         out += v + '\n'
     return out.strip()
+
+def weekly(notif, now):
+    values = notif['values']
+    strp = notif['strp']
+    for val in values:
+        t = now.strftime(strp)
+        if t == val:
+            return values[val]
     
 
 if __name__ == '__main__':
