@@ -42,3 +42,5 @@ Each `notification` contains these values:
 `separator`s are simply a horizontal line
 
 `weekly` notifications are structured like `reminders` except take only a day of the week instead of a full date.
+
+### See the `.WELCOME` file in this repository as an example
