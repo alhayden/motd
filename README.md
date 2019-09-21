@@ -36,3 +36,9 @@ Each `notification` contains these values:
 
 
 `always` notifications always display
+
+`header` notifications always display and are **not** preceeded by bullet points
+
+`separator`s are simply a horizontal line
+
+`weekly` notifications are structured like `reminders` except take only a day of the week instead of a full date.
