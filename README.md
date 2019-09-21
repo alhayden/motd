@@ -43,4 +43,4 @@ Each `notification` contains these values:
 
 `weekly` notifications are structured like `reminders` except take only a day of the week instead of a full date.
 
-### See the `.WELCOME` file in this repository as an example
+**See the `.WELCOME` file in this repository as an example**
