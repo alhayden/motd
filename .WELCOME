@@ -60,7 +60,7 @@
 		},
 		{
 			"name": "Weekly",
-			"type": "weekly",
+			"type": "reminder",
 			"msg": "%s",
 			"ansi": {},
 			"strp": "%a",
@@ -68,6 +68,11 @@
 				"Thu": "It's trash day!",
 				"Mon": "Remember your Monday meeting today!"
 			}
+		},
+		{
+			"name": "request",
+			"type": "url",
+			"url": "g.co"
 		}
 	]
 }

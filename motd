@@ -1,12 +1,12 @@
 #! /usr/bin/python
 
-import json, datetime, random, os, sys
+import json, datetime, random, os, sys, urllib.request
 
 
 def main():
     path = os.environ['HOME'] + '/.WELCOME'
 
-    now = datetime.date.today()
+    now = datetime.datetime.now() ##TODO TODAY?
 
     # %host -> host, %user -> username, %date -> date
     welcome = json.loads(open(path, 'r').read().replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y')))
@@ -38,8 +38,8 @@ def main():
             tick = False
         elif tipe == 'separator':
             printout += separator
-        elif tipe == 'weekly':
-            output = weekly(notif, now)
+        elif tipe == 'url':
+            output = remote(notif, now)
         if output is not None:
             if 'msg' in notif:
                 output = notif['msg'].replace('%s', output)
@@ -80,24 +80,25 @@ def parseansi(ansi):
     return "\33[0m" + out
 
 def reminder(notif, now):
-    warnings = notif['warnings']
+    if 'warnings' in notif:
+        warnings = notif['warnings']
+    else:
+        warnings = [0]
     strp = notif['strp']
     values = notif['values']
     returns = ''
     for val in values:
-        t = datetime.datetime.strptime(val, strp).date()
-        t = t.replace(year=now.year)
-        if t < now:
-            t = t.replace(year=t.year+1)
-        delta = t - now
-        if delta.days in warnings:
-            returns += values[val] + '\n'
+        for warning in warnings:
+            warn_date = now + datetime.timedelta(days=warning)
+            t = warn_date.strftime(strp)
+            if t == val:
+                returns += values[val] + '\n'
     if returns == '':
         return
     return returns.strip()
 
 def rand(notif, now):
-    random.seed(str(now) + notif['name'])
+    random.seed(now.strftime('%j%Y') + notif['name'])
     if random.random() > notif['null_chance']:
         return random.choice(notif['values'])
 
@@ -112,14 +113,13 @@ def always(notif, now):
         out += v + '\n'
     return out.strip()
 
-def weekly(notif, now):
-    values = notif['values']
-    strp = notif['strp']
-    for val in values:
-        t = now.strftime(strp)
-        if t == val:
-            return values[val]
-    
+def remote(notif, now):
+    with urllib.request.urlopen(notif['url'],timeout=1) as f:
+        result = f.read().decode('utf-8').strip()
+        if result == '':
+            return
+        return result
+
 
 if __name__ == '__main__':
     main()
