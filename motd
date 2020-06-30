@@ -53,6 +53,7 @@ def main():
 
 def pad(message, width, box_ansi, tick=False, ansi=''):
     plain = '\33[0m'
+    message = message.replace("\t",'    ')
     s = 0
     n = width - 2
     for i in range(len(message)):
