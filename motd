@@ -1,45 +1,87 @@
 #! /usr/bin/python
 
-import json, datetime, random, os, sys, urllib.request
+"""
+MOTD - simple terminal greeter
+"""
+
+import json
+import datetime
+import random
+import os
+import sys
+import urllib.request
 
 
 def main():
-    path = os.environ['HOME'] + '/.WELCOME'
+    path = os.path.join(os.environ['HOME'], '.WELCOME') # default config file is /home/<user>/.WELCOME
 
     now = datetime.datetime.now() ##TODO TODAY?
 
-    # %host -> host, %user -> username, %date -> date
-    welcome = json.loads(open(path, 'r').read().replace('%host', os.uname().nodename).replace('%user', os.environ['LOGNAME']).replace('%date', now.strftime('%A, %d %b %Y')))
-    
-    rows, columns = os.popen('stty size', 'r').read().split()
-    width = min(welcome['width_max'], int(columns)) - 2
-    if width < welcome['width_min']:
-        sys.exit()
+    # if an argument was passed, use that as the .WELCOME format file
+    if len(sys.argv) > 1 and sys.argv[1] != "":
+        path = sys.argv[1]
 
-    box_ansi = parseansi(welcome['ansi'])
+    # read in the config file
+    welcome_config = {}
+    try:
+        with open(path, "r") as f:
+            config_raw = f.read()
+            # do substitutions (easier before the data is broken into parts)
+            config_raw = config_raw.replace('%host', os.uname().nodename)       # hostname
+            config_raw = config_raw.replace('%user', os.environ['LOGNAME'])     # username
+            config_raw = config_raw.replace('%date', now.strftime('%A, %d %b %Y'))  # current date
+
+            welcome_config = json.loads(config_raw)
+    except Exception as e:
+        print("Error opening config file: " + str(path))
+        print(e)
+    
+    # get the terminal size
+    rows, columns = os.popen('stty size', 'r').read().split()
+
+    printout = generate_printout(welcome_config, columns, now)
+
+    # silently error (don't print) if there was a problem
+    if printout:
+        print(printout)
+
+def generate_printout(configuration: dict, width: int, time: datetime.datetime):
+    """
+    Given 'configuration' - dict of parsed JSON - generate a motd message string and return it
+    - configuration: the configuration data used to generate the motd string
+    - width: the maximum width of the motd string
+    Returns the motd string, or None if the configuration was invalid
+    """
+    width = min(configuration['width_max'], int(width)) - 2
+    if width < configuration['width_min']:    # don't generate a printout if the width is smaller than the smallest allowed
+        return None
+
+    box_ansi = parseansi(configuration['ansi'])
     
     printout = box_ansi + '┏' + '━' * width + '┓' + '\n'
     separator = box_ansi + '┠' + '─' * width + '┨\n'
 
-    for notif in welcome['notifications']:
-        tipe = notif['type']
+    for notif in configuration['notifications']:
+        notif_type = notif['type']
         output = None
         tick = True
-        if tipe == 'random':
-            output = rand(notif, now)
-        elif tipe == 'splash':
-            output = splash(notif, now)
-        elif tipe == 'reminder':
-            output = reminder(notif, now)
-        elif tipe == 'always':
-            output = always(notif, now)
-        elif tipe == 'header':
+        if notif_type == 'random':
+            output = rand(notif, time)
+        elif notif_type == 'splash':
+            output = splash(notif, time)
+        elif notif_type == 'reminder':
+            output = reminder(notif, time)
+        elif notif_type == 'always':
+            output = always(notif, time)
+        elif notif_type == 'url':
+            output = remote(notif, time)
+        elif notif_type == 'header':
             output = notif['header']
             tick = False
-        elif tipe == 'separator':
+        elif notif_type == 'separator':
             printout += separator
-        elif tipe == 'url':
-            output = remote(notif, now)
+        
+        # post-processing - pad and add formatting
         if output is not None:
             if 'msg' in notif:
                 output = notif['msg'].replace('%s', output)
@@ -49,42 +91,81 @@ def main():
                 printout += pad(output, width, box_ansi, tick=tick)
 
     printout += box_ansi + '┗' + '━' * width + '┛'
-    print(printout)
+    
+    return printout
 
-def pad(message, width, box_ansi, tick=False, ansi=''):
+def pad(message: str, width: int, box_ansi: str, tick:bool=False, ansi:str=''):
+    """
+    Given a simple message, massage the string into the proper format to be printed as part of a motd
+    
+    message:    string that should be included in the motd
+    width:      width of the motd box
+    box_ansi:   ANSI string modifiers to apply to box
+    tick:       whether to demark the message with a bullet (only applies to first line)
+    ansi:       ANSI string modifiers to apply to the message
+
+    Returns the modified message.
+    """
+
     plain = '\33[0m'
-    message = message.replace("\t",'    ')
-    s = 0
-    n = width - 2
+    message = message.replace("\t",'    ')  # replace tabs with spaces
+    # wrap text if too wide
+    last_space = 0
+    line_length = width - 2
+    line_start = 0
+    split_message = ""
     for i in range(len(message)):
         if message[i] == ' ' or message[i] == '\n':
-            s = i
-        if i == n:
-            message = message[:s] + '\n' + message[s+1:]
-            n = s + width - 2
-    msg = message.split('\n')
+            last_space = i
+        if i == line_start + line_length:
+            # line is too long; insert a line break...
+            if last_space <= line_start:    # handle edge case where there are no spaces in line
+                split_message += message[line_start:i] + "\n"
+                line_start = i
+            else:                           # handle normal case - pull out line start to last space, skip space
+                split_message += message[line_start:last_space] + "\n"
+                line_start = last_space + 1
+    split_message += message[line_start:]
+
     output = ''
-    for m in msg:
+    for m in split_message.split("\n"):
         output += '┃ ' + ansi + m + ' ' *(width - len(m) - 1) + box_ansi + '┃\n'
     if tick:
         output = '┣' + output[1:]
     return output
 
-def parseansi(ansi):
+def parseansi(ansi: dict):
+    """
+    Parse ansi configuration and generate ANSI control strings
+    ansi: dictionary of ANSI controls - 'r' 'g' 'b' keys for colors, 'codes' for a list of control codes
+
+    Returns ANSI string with specified controls
+    """
     esc = '\33['
     out = ''
+    # if r, g, and b present in config add a color string:
     if 'r' in ansi and 'g' in ansi and 'b' in ansi:
         out = '\33[38;2;' + str(ansi['r']) + ';' + str(ansi['g']) + ';' + str(ansi['b']) + 'm'
+    # if codes is present, add control codes
     if 'codes' in ansi:
         for code in ansi['codes']:
             out += esc + str(code) + 'm'
+
     return "\33[0m" + out
 
-def reminder(notif, now):
-    if 'warnings' in notif:
+def reminder(notif: dict, now: datetime.datetime) -> str|None:
+    """
+    Generate a 'reminder' string given the configuration in 'notif'
+    notif:  dictionary configuration for the reminder
+    now:    datetime used to generate the reminder
+
+    Returns string of the reminder message, or None if no reminders were generated
+    """
+    if 'warnings' in notif: # default warning is 0 - only notify when event is 0 days in the future (i.e. today)
         warnings = notif['warnings']
     else:
         warnings = [0]
+    
     strp = notif['strp']
     values = notif['values']
     returns = ''
@@ -94,32 +175,68 @@ def reminder(notif, now):
             t = warn_date.strftime(strp)
             if t == val:
                 returns += values[val] + '\n'
+    
     if returns == '':
         return
     return returns.strip()
 
-def rand(notif, now):
-    random.seed(now.strftime('%j%Y') + notif['name'])
+def rand(notif: dict, now: datetime.datetime) -> str|None:
+    """
+    Generate a 'random' string given the configuration in 'notif'
+    notif:  dictionary configuration for the random message
+    now:    datetime used to generate the random message
+
+    Returns a randomly selected message or None
+    """
+    random.seed(now.strftime('%j%Y') + notif['name'])   # set the random seed based on the current day
     if random.random() > notif['null_chance']:
         return random.choice(notif['values'])
+    
+    return None
 
-def splash(notif, now):
+def splash(notif: dict, now: datetime.datetime) -> str|None:
+    """
+    Generate a 'splash' random string fiven the configuration in 'notif'
+    notif:  dictionary configuration for the splash message
+    now:    unused. Included only for parity with other generators
+
+    Returns a randomly selected message or None
+    """
     random.seed()
     if random.random() > notif['null_chance']:
         return random.choice(notif['values'])
 
-def always(notif, now):
+    return None
+
+def always(notif: dict, now: datetime.datetime) -> str:
+    """
+    Generate a string given the configuration in 'notif.' A string is always returned
+    notif:  dictionary configuration for the message
+    now:    unused. Included only for parity with other generators
+
+    Returns the string
+    """
     out = ''
     for v in notif['values']:
         out += v + '\n'
     return out.strip()
 
-def remote(notif, now):
-    with urllib.request.urlopen(notif['url'],timeout=1) as f:
-        result = f.read().decode('utf-8').strip()
-        if result == '':
-            return
-        return result
+def remote(notif: dict, now: datetime.datetime) -> str|None:
+    """
+    Generates a string using the configuration in 'notif'
+    notif:  dictionary configuration used to fetch the message from the network
+    now:    unused. Included only for parity with the other generators
+
+    Returns the string fetched from the network, or None
+    """
+    try:
+        with urllib.request.urlopen(notif['url'],timeout=1) as f:
+            result = f.read().decode('utf-8').strip()
+            if result == '':
+                return
+            return result
+    except:
+        return
 
 
 if __name__ == '__main__':
